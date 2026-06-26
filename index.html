@@ -194,6 +194,45 @@
             padding: 16px;
             font-style: italic;
         }
+        .response-box {
+            margin-top: 20px;
+            background-color: rgba(30, 30, 30, 0.7);
+            border: 1px solid #2d2d2d;
+            border-radius: 8px;
+            padding: 16px;
+            display: none;
+        }
+        .response-box.visible { display: block; }
+        .response-title {
+            font-size: 11px;
+            color: #ef4b23;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .response-content {
+            font-size: 13px;
+            color: #ccc;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .response-meta {
+            font-size: 10px;
+            color: #666;
+            margin-top: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .sse-status {
+            font-size: 10px;
+            color: #555;
+            text-align: center;
+            margin-top: 8px;
+        }
+        .sse-status.connected { color: #6dd173; }
+        .sse-status.error { color: #ff7a66; }
     </style>
 </head>
 <body>
@@ -231,6 +270,15 @@
         <div id="status"></div>
     </div>
 
+    <div class="response-box" id="responseBox">
+        <div class="response-title">Letzte Antwort</div>
+        <div class="response-content" id="responseContent"></div>
+        <div class="response-meta">
+            <span id="responseTime"></span>
+            <span class="sse-status" id="sseStatus">Verbindung wird aufgebaut...</span>
+        </div>
+    </div>
+
     <div class="history" id="historySection" style="display: none;">
         <div class="history-header">
             <span class="history-title">Letzte Abfragen</span>
@@ -241,8 +289,39 @@
 
     <script>
         const TOPIC = 'ACRflex-Control';
+        const STATUS_TOPIC = 'ACRflex-status';
         const HISTORY_KEY = 'acr_history';
         const MAX_HISTORY = 5;
+
+        function initSSE() {
+            const es = new EventSource('https://ntfy.sh/' + STATUS_TOPIC + '/sse');
+            const statusEl = document.getElementById('sseStatus');
+            es.onopen = () => { statusEl.textContent = 'Verbunden'; statusEl.className = 'sse-status connected'; };
+            es.onerror = () => { statusEl.textContent = 'Verbindung unterbrochen'; statusEl.className = 'sse-status error'; };
+            es.onmessage = (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    let content = '';
+                    if (data.message) {
+                        try { content = JSON.stringify(JSON.parse(data.message), null, 2); }
+                        catch { content = data.message; }
+                    } else if (typeof data === 'string') {
+                        content = data;
+                    } else {
+                        content = JSON.stringify(data, null, 2);
+                    }
+                    showResponse(content);
+                } catch {
+                    showResponse(String(e.data));
+                }
+            };
+        }
+
+        function showResponse(text) {
+            document.getElementById('responseContent').textContent = text;
+            document.getElementById('responseTime').textContent = new Date().toLocaleString('de-DE');
+            document.getElementById('responseBox').classList.add('visible');
+        }
 
         function toggleTS() {
             const ts = document.getElementById('testserie');
@@ -344,6 +423,7 @@
 
         toggleTS();
         renderHistory();
+        initSSE();
     </script>
 </body>
 </html>
