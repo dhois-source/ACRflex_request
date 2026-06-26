@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACRflex Direktabfrage</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 480px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #1a1a2e;
+            color: #eee;
+        }
+        h1 {
+            text-align: center;
+            color: #00d4aa;
+            margin-bottom: 8px;
+            font-size: 22px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+        .panel {
+            background-color: #16213e;
+            border-radius: 10px;
+            padding: 18px;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px 0;
+            font-size: 13px;
+            color: #aaa;
+        }
+        select, input[type="text"] {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #0f3460;
+            border-radius: 6px;
+            background-color: #0f3460;
+            color: #fff;
+            font-size: 15px;
+        }
+        select:focus, input:focus {
+            outline: none;
+            border-color: #00d4aa;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 14px;
+            transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn-query { background-color: #00d4aa; color: #1a1a2e; }
+        #status {
+            margin-top: 12px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            display: none;
+        }
+        .ok { background-color: #1e3a2f; color: #00d4aa; display: block !important; }
+        .err { background-color: #3a1e1e; color: #ff6666; display: block !important; }
+        .info {
+            background-color: #0f3460;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            color: #aaa;
+            line-height: 1.5;
+        }
+        .descr {
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 ACRflex Direktabfrage</h1>
+    <div class="subtitle">Zeigt den aktuellsten DB-Status an</div>
+
+    <div class="info">
+        1. <strong>ACRflex_status_receiver.py</strong> starten<br>
+        2. Daten eingeben und <strong>Abfragen</strong> klicken<br>
+        3. Ergebnis kommt als Push auf <strong>ntfy.sh/ACRflex-status</strong>
+    </div>
+
+    <div class="panel">
+        <label for="typ">Nummerntyp</label>
+        <select id="typ" onchange="toggleTS()">
+            <option value="TAVA">TAVA</option>
+            <option value="COP">COP</option>
+        </select>
+
+        <label for="nummer">Nummer</label>
+        <input type="text" id="nummer" placeholder="z. B. 12345">
+
+        <label for="testserie">Testserie</label>
+        <input type="text" id="testserie" placeholder="z. B. 01 (bei TAVA erforderlich)">
+
+        <label for="teilenummern">Teilenummern (kommagetrennt)</label>
+        <input type="text" id="teilenummern" placeholder="001, 002, 003">
+
+        <button class="btn btn-query" onclick="send()">Abfragen</button>
+        <div id="status"></div>
+    </div>
+
+    <script>
+        const TOPIC = 'ACRflex-Control';
+
+        function toggleTS() {
+            const ts = document.getElementById('testserie');
+            ts.disabled = document.getElementById('typ').value === 'COP';
+            ts.style.opacity = ts.disabled ? '0.4' : '1';
+        }
+
+        function show(msg, err) {
+            const el = document.getElementById('status');
+            el.textContent = msg;
+            el.className = err ? 'err' : 'ok';
+            setTimeout(() => { el.className = ''; }, 5000);
+        }
+
+        async function send() {
+            const typ = document.getElementById('typ').value;
+            const nummer = document.getElementById('nummer').value.trim();
+            const testserie = document.getElementById('testserie').value.trim();
+            const teilenummern = document.getElementById('teilenummern').value.trim();
+
+            if (!nummer) { show('Nummer eingeben!', true); return; }
+            if (!teilenummern) { show('Teilenummern eingeben!', true); return; }
+
+            const payload = { action: 'QUERY', typ, nummer, teilenummern, testserie };
+
+            try {
+                const r = await fetch('https://ntfy.sh/' + TOPIC, {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                    headers: { 'Title': 'Status-Abfrage', 'Priority': '4' }
+                });
+                show(r.ok ? 'Abfrage gesendet. Ergebnis kommt als Push.' : 'Fehler: HTTP ' + r.status, !r.ok);
+            } catch (e) {
+                show('Netzwerkfehler: ' + e.message, true);
+            }
+        }
+
+        toggleTS();
+    </script>
+</body>
+</html>
