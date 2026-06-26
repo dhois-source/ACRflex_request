@@ -396,14 +396,33 @@
             renderHistory();
         }
 
+        function pad(val, len) {
+            const s = String(val).trim();
+            return s ? s.padStart(len, '0') : s;
+        }
+
         async function send() {
             const typ = document.getElementById('typ').value;
             const nummer = document.getElementById('nummer').value.trim();
-            const testserie = document.getElementById('testserie').value.trim();
-            const teilenummern = document.getElementById('teilenummern').value.trim();
+            let testserie = document.getElementById('testserie').value.trim();
+            let teilenummernRaw = document.getElementById('teilenummern').value;
 
             if (!nummer) { show('Nummer eingeben!', true); return; }
-            if (!teilenummern) { show('Teilenummern eingeben!', true); return; }
+            if (!teilenummernRaw.trim()) { show('Teilenummern eingeben!', true); return; }
+
+            if (typ === 'TAVA') {
+                testserie = pad(testserie, 4);
+                const parts = teilenummernRaw.split(',').map(t => pad(t, 4));
+                teilenummernRaw = parts.join(', ');
+            } else {
+                const parts = teilenummernRaw.split(',').map(t => pad(t, 3));
+                teilenummernRaw = parts.join(', ');
+            }
+
+            document.getElementById('testserie').value = testserie;
+            document.getElementById('teilenummern').value = teilenummernRaw;
+
+            const teilenummern = teilenummernRaw;
 
             addToHistory({ typ, nummer, teilenummern, testserie, date: new Date().toISOString() });
 
